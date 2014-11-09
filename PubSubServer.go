@@ -19,11 +19,12 @@ This means that incoming messages on the requested channel are streamed to the c
 [3] This request frees resources associated with this channels and terminates
 all connections relying on it by sending a zero-length chunk (i.e. exiting the goroutine)
 
-TODO:
-    * Implement proper means of configuration
-    * Allow listening for messages on multiple channels at once (?id=a&id=b)
-    * Allow requesting a non-chunked connection (new request for every message)
-    * Implement correct buffering (could be difficult w/o making the server too heavy)
+TODO: [Work]
+    * [3] Implement proper means of configuration
+    * [2] Allow listening for messages on multiple channels at once (?id=a&id=b)
+    * [2] Allow requesting a non-chunked connection (new request for every message)
+    * [4] Implement correct buffering (could be difficult w/o making the server too heavy)
+    * [2] Implement different channelsets (i.e. /pub/chanset?id=xyz)
 
 Copyright © 2014, Google Inc. <lewinb@google.com>
 
