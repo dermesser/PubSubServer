@@ -25,6 +25,7 @@ TODO: [Work]
     * [2] Allow requesting a non-chunked connection (new request for every message)
     * [4] Implement correct buffering (could be difficult w/o making the server too heavy)
     * [2] Implement different channelsets (i.e. /pub/chanset?id=xyz)
+    * [3] Propagate Content-Type (i.e. implement struct for messages, add Content-Type field)
 
 Copyright © 2014, Google Inc. <lewinb@google.com>
 
