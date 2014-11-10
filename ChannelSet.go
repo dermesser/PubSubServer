@@ -6,6 +6,11 @@ import (
 	"sync"
 )
 
+type message struct {
+	msg []byte
+	content_type string
+}
+
 type channelSet struct {
 	channels      map[string]*list.List
 	channels_lock sync.Mutex
@@ -29,7 +34,7 @@ func (cs *channelSet) subscribe(chan_id string) subscription {
 		cs.channels[chan_id] = list.New()
 	}
 
-	sub.channel = make(chan string, 10)
+	sub.channel = make(chan string)
 	sub.listKey = cs.channels[chan_id].PushFront(sub.channel)
 
 	return sub
@@ -58,6 +63,8 @@ func (cs *channelSet) publish(chan_id, message string) error {
 		e.Value.(chan string) <- message
 	}
 
+	logger.Println("Published message to channel ", chan_id)
+
 	return nil
 }
 
@@ -70,5 +77,7 @@ func (cs *channelSet) deleteChannel(chan_id string) {
 	}
 
 	delete(cs.channels, chan_id)
+
+	logger.Println("Deleted channel ", chan_id)
 }
 

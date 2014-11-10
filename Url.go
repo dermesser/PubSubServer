@@ -8,7 +8,7 @@ import (
 // Returns the value of the first id= parameter of the URL.
 func getChannelId(u *url.URL) string {
 	// FIXME: Configurable id parameter!
-	return getURLParameter(u,"id")
+	return getURLParameter(u,channel_id_key)
 }
 
 // Returns the value of the parameter *key* from URL *u*

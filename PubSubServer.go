@@ -40,17 +40,69 @@ import (
 	"log"
 	"flag"
 	"net/http"
-	"time"
+	"os"
 )
 
-var logger log.Logger
+// Those are the command-line parameters
+var (
+	channel_id_key,
+	no_chunked_key,
+	log_file,
+	bind_host,
+	bind_port string
+)
+
+var logger *log.Logger
 
 var defaultChannelSet channelSet
 
 
+func setupLogger() {
+	if log_file == "<stdout>" {
+		return
+	}
+
+	if log_file == "" {
+		var nullwriter NullWriter
+		logger = log.New(&nullwriter,"",0)
+		return
+	}
+
+	file, err := os.OpenFile(log_file, os.O_APPEND | os.O_WRONLY, 0600)
+
+	if err != nil {
+		log.Panic("Couldn't open logfile")
+	}
+
+	logger = log.New(file,"PubSubServer: ",0)
+}
+
+func parseFlags() {
+	flag.StringVar(&bind_host,"host", "0.0.0.0", "Specifies the IP address to listen on")
+	flag.StringVar(&bind_port,"port", "8080", "Specifies the TCP port to listen on")
+
+	flag.StringVar(&channel_id_key,"channelid_key", "id", "Specifies which (URL) parameter holds the channel ID")
+
+	flag.StringVar(&no_chunked_key,"no_chunked_key", "no_chunked", "Specifies which (URL) parameter tells us to not use chunked encoding")
+
+	flag.StringVar(&log_file,"logfile", "<stdout>", "Where to send log messages (file name!). Specify as empty to discard messages.")
+
+	helpRequested := flag.Bool("help", false, "Give help on commands")
+
+	flag.Parse()
+
+	if *helpRequested {
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+
+	setupLogger()
+}
 
 func main() {
 	fmt.Print("\n")
+
+	parseFlags()
 
 	defaultChannelSet.channels = make(map[string]*list.List)
 
@@ -65,6 +117,6 @@ func main() {
 
 	http.HandleFunc("/test", TestFunc)
 
-	http.ListenAndServe("localhost:8080", nil)
+	http.ListenAndServe(bind_host + ":" + bind_port, nil)
 }
 
