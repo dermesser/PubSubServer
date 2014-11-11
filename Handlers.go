@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"fmt"
 	"time"
 )
 
@@ -9,23 +10,43 @@ import (
 func PubFunc(w http.ResponseWriter, r *http.Request) {
 	chan_id := getChannelId(r.URL)
 
-	var b []byte = make([]byte, r.ContentLength)
+	var msg message
+	msg.msg = make([]byte, r.ContentLength)
 
-	l, _ := r.Body.Read(b)
+	l, _ := r.Body.Read(msg.msg)
 
 	if l == 0 {
 		w.WriteHeader(400)
 		return
 	}
+
+	if len(r.Header["Content-Type"]) > 0 {
+		msg.content_type = r.Header["Content-Type"][0]
+	} else {
+		msg.content_type = "text/plain"
+	}
+
+	successed, err := defaultChannelSet.publish(chan_id, msg)
+
+	if err != nil { // Is always nil yet.
+		w.WriteHeader(500)
+		return
+	}
+
+	w.Header()["Content-Type"] = []string{"application/json"}
 	w.WriteHeader(200)
+	w.Write([]byte(fmt.Sprintf("{\"succ\": %d }",successed)))
 
-	defaultChannelSet.publish(chan_id, string(b))
-
+	return
 }
 
 func SubFunc(w http.ResponseWriter, r *http.Request) {
-	chan_id := getChannelId(r.URL)
-	var channel_closed bool = false
+	params := getAllURLParameters(r.URL)
+
+	chan_id := params[channel_id_key][0]
+
+	channel_closed := false
+	is_chunked := len(params[no_chunked_key]) == 0
 
 	sub := defaultChannelSet.subscribe(chan_id)
 	defer func() {
@@ -35,22 +56,28 @@ func SubFunc(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	for {
-		msg, ok := <-sub.channel
+		msg, not_closed := <-sub.channel
 
-		if !ok { // Channel has been closed
+		if !not_closed { // Channel probably has been closed
 			channel_closed = true
 			break
 		}
 
-		_, err := w.Write([]byte(msg + "\n")) // Line-end because otherwise the chunk is not transmitted
+		w.Header()["Content-Type"] = []string{msg.content_type} // Just use the first content-type
+		_, err := w.Write(msg.msg) // Line-end because otherwise the chunk is not transmitted
+		w.Write([]byte("\r\n"))
 
 		if err != nil {
 			break
 		}
 
-		// If the server has the capability, use chunked encoding. Else don't.
-		if w.(http.Flusher) != nil {
-			w.(http.Flusher).Flush()
+		if is_chunked {
+			// If the server has the capability, use chunked encoding. Else don't.
+			if w.(http.Flusher) != nil {
+				w.(http.Flusher).Flush()
+			} else {
+				break
+			}
 		} else {
 			break
 		}
@@ -61,6 +88,22 @@ func DelFunc(w http.ResponseWriter, r *http.Request) {
 	chan_id := getChannelId(r.URL)
 
 	defaultChannelSet.deleteChannel(chan_id)
+
+}
+
+func GenChannelFunc(w http.ResponseWriter, r *http.Request) {
+	var length uint
+	length_string := getURLParameter(r.URL,channel_id_length_key)
+
+	if length_string != "" {
+		fmt.Sscan(getURLParameter(r.URL,channel_id_length_key),&length)
+	} else {
+		length = 16
+	}
+
+	w.Header()["Content-Type"] = []string{"text/plain"}
+	w.WriteHeader(200)
+	w.Write(generateRandomAscii(length))
 
 }
 

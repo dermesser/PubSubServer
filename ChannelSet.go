@@ -19,7 +19,7 @@ type channelSet struct {
 type subscription struct {
 	listKey    *list.Element
 	channel_id string
-	channel    chan string
+	channel    chan message
 }
 
 
@@ -34,7 +34,7 @@ func (cs *channelSet) subscribe(chan_id string) subscription {
 		cs.channels[chan_id] = list.New()
 	}
 
-	sub.channel = make(chan string)
+	sub.channel = make(chan message)
 	sub.listKey = cs.channels[chan_id].PushFront(sub.channel)
 
 	return sub
@@ -50,22 +50,36 @@ func (cs *channelSet) cancelSubscription(sub *subscription) {
 	close(sub.channel)
 }
 
-func (cs *channelSet) publish(chan_id, message string) error {
+func (cs *channelSet) publish(chan_id string, msg message) (delivered uint, e error) {
+
+	var successful_published uint = 0
 
 	cs.channels_lock.Lock()
 	defer cs.channels_lock.Unlock()
 
 	if cs.channels[chan_id] == nil || cs.channels[chan_id].Front() == nil {
-		return nil
+		return 0, nil
 	}
 
 	for e := cs.channels[chan_id].Front(); e != nil; e = e.Next() {
-		e.Value.(chan string) <- message
+		/*
+		// Would block if receiver is not ready to receive message.
+		e.Value.(chan message) <- message
+		successful_published++
+		*/
+
+		select {
+		case e.Value.(chan message) <- msg:
+			successful_published++
+		default:
+			continue
+		}
+
 	}
 
-	logger.Println("Published message to channel ", chan_id)
+	logger.Printf("Published message %.5s... to channel %.5s...", msg.msg, chan_id)
 
-	return nil
+	return successful_published, nil
 }
 
 func (cs *channelSet) deleteChannel(chan_id string) {
@@ -73,7 +87,7 @@ func (cs *channelSet) deleteChannel(chan_id string) {
 	defer cs.channels_lock.Unlock()
 
 	for e := cs.channels[chan_id].Front(); e != nil; e = e.Next() {
-		close(e.Value.(chan string))
+		close(e.Value.(chan message))
 	}
 
 	delete(cs.channels, chan_id)

@@ -20,12 +20,12 @@ This means that incoming messages on the requested channel are streamed to the c
 all connections relying on it by sending a zero-length chunk (i.e. exiting the goroutine)
 
 TODO: [Work]
-    * [3] Implement proper means of configuration
-    * [2] Allow listening for messages on multiple channels at once (?id=a&id=b)
-    * [2] Allow requesting a non-chunked connection (new request for every message)
-    * [4] Implement correct buffering (could be difficult w/o making the server too heavy)
-    * [2] Implement different channelsets (i.e. /pub/chanset?id=xyz)
-    * [3] Propagate Content-Type (i.e. implement struct for messages, add Content-Type field)
+    * ✓ [3] Implement proper means of configuration
+    *   [2] Allow listening for messages on multiple channels at once (?id=a&id=b)
+    * ✓ [2] Allow requesting a non-chunked connection (new request for every message)
+    *   [4] Implement correct buffering (If-Modified-Since etc; could be difficult w/o making the server too heavy)
+    *   [2] Implement different channelsets (i.e. /pub/chanset?id=xyz)
+    * ✓ [3] Propagate Content-Type (i.e. implement struct for messages, add Content-Type field)
 
 Copyright © 2014, Google Inc. <lewinb@google.com>
 
@@ -46,12 +46,15 @@ import (
 // Those are the command-line parameters
 var (
 	channel_id_key,
+	channel_id_length_key,
 	no_chunked_key,
 	log_file,
 	bind_host,
 	bind_port string
 )
 
+
+const logFlags int = log.Ldate | log.Ltime
 var logger *log.Logger
 
 var defaultChannelSet channelSet
@@ -59,12 +62,13 @@ var defaultChannelSet channelSet
 
 func setupLogger() {
 	if log_file == "<stdout>" {
+		logger = log.New(os.Stderr,"PubSubServer: ",logFlags)
 		return
 	}
 
 	if log_file == "" {
 		var nullwriter NullWriter
-		logger = log.New(&nullwriter,"",0)
+		logger = log.New(&nullwriter,"",logFlags)
 		return
 	}
 
@@ -74,7 +78,7 @@ func setupLogger() {
 		log.Panic("Couldn't open logfile")
 	}
 
-	logger = log.New(file,"PubSubServer: ",0)
+	logger = log.New(file,"PubSubServer: ",logFlags)
 }
 
 func parseFlags() {
@@ -82,8 +86,8 @@ func parseFlags() {
 	flag.StringVar(&bind_port,"port", "8080", "Specifies the TCP port to listen on")
 
 	flag.StringVar(&channel_id_key,"channelid_key", "id", "Specifies which (URL) parameter holds the channel ID")
-
-	flag.StringVar(&no_chunked_key,"no_chunked_key", "no_chunked", "Specifies which (URL) parameter tells us to not use chunked encoding")
+	flag.StringVar(&no_chunked_key,"no_chunked_key", "no_chunked", "Specifies which (URL) parameter tells us to not use chunked encoding (value of parameter is irrelevant)")
+	flag.StringVar(&channel_id_length_key,"channel_id_length_key", "length", "The parameter which tells the /gen_channel handler (which generates a random channel ID) how long the channel ID should be")
 
 	flag.StringVar(&log_file,"logfile", "<stdout>", "Where to send log messages (file name!). Specify as empty to discard messages.")
 
@@ -114,6 +118,9 @@ func main() {
 
 	http.HandleFunc("/del/", DelFunc)
 	http.HandleFunc("/del", DelFunc)
+
+	http.HandleFunc("/gen_channel", GenChannelFunc)
+	http.HandleFunc("/gen_channel/", GenChannelFunc)
 
 	http.HandleFunc("/test", TestFunc)
 

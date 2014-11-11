@@ -13,7 +13,13 @@ func getChannelId(u *url.URL) string {
 
 // Returns the value of the parameter *key* from URL *u*
 func getURLParameter(u *url.URL, key string) string {
-	return getURLParameters(u,key)[0]
+	params := getURLParameters(u,key)
+
+	if len(params) == 0 {
+		return ""
+	} else {
+		return params[0]
+	}
 }
 
 // Return all values with the key *key*
