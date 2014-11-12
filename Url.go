@@ -4,16 +4,15 @@ import (
 	"net/url"
 )
 
-
 // Returns the value of the first id= parameter of the URL.
 func getChannelId(u *url.URL) string {
 	// FIXME: Configurable id parameter!
-	return getURLParameter(u,channel_id_key)
+	return getURLParameter(u, channel_id_key)
 }
 
 // Returns the value of the parameter *key* from URL *u*
 func getURLParameter(u *url.URL, key string) string {
-	params := getURLParameters(u,key)
+	params := getURLParameters(u, key)
 
 	if len(params) == 0 {
 		return ""
@@ -44,4 +43,3 @@ func getAllURLParameters(u *url.URL) map[string][]string {
 	}
 	return v
 }
-

@@ -5,7 +5,7 @@ import (
 )
 
 func generateRandomAscii(size uint) []byte {
-	output := make([]byte,size)
+	output := make([]byte, size)
 
 	rand.Read(output)
 
@@ -16,7 +16,7 @@ func generateRandomAscii(size uint) []byte {
 	return output
 }
 
-type NullWriter struct {}
+type NullWriter struct{}
 
 func (w *NullWriter) Write(p []byte) (int, error) {
 	return len(p), nil

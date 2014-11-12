@@ -1,16 +1,19 @@
 package main
 
 import (
-	"net/http"
 	"fmt"
+	"net/http"
 	"time"
 )
 
 // Invoked for all /pub/ requests.
 func PubFunc(w http.ResponseWriter, r *http.Request) {
-	chan_id := getChannelId(r.URL)
+	params := getAllURLParameters(r.URL)
 
 	var msg message
+	var successed uint
+
+
 	msg.msg = make([]byte, r.ContentLength)
 
 	l, _ := r.Body.Read(msg.msg)
@@ -26,8 +29,7 @@ func PubFunc(w http.ResponseWriter, r *http.Request) {
 		msg.content_type = "text/plain"
 	}
 
-	successed, err := defaultChannelSet.publish(chan_id, msg)
-
+	successed, err := defaultChannelSet.publish(params[channel_id_key], msg)
 	if err != nil { // Is always nil yet.
 		w.WriteHeader(500)
 		return
@@ -35,7 +37,7 @@ func PubFunc(w http.ResponseWriter, r *http.Request) {
 
 	w.Header()["Content-Type"] = []string{"application/json"}
 	w.WriteHeader(200)
-	w.Write([]byte(fmt.Sprintf("{\"succ\": %d }",successed)))
+	w.Write([]byte(fmt.Sprintf("{\"succ\": %d }", successed)))
 
 	return
 }
@@ -43,12 +45,13 @@ func PubFunc(w http.ResponseWriter, r *http.Request) {
 func SubFunc(w http.ResponseWriter, r *http.Request) {
 	params := getAllURLParameters(r.URL)
 
-	chan_id := params[channel_id_key][0]
+	chan_ids := params[channel_id_key]
 
 	channel_closed := false
+
 	is_chunked := len(params[no_chunked_key]) == 0
 
-	sub := defaultChannelSet.subscribe(chan_id)
+	sub := defaultChannelSet.subscribe(chan_ids)
 	defer func() {
 		if !channel_closed { // Don't close the channel twice (runtime error!)
 			defaultChannelSet.cancelSubscription(&sub)
@@ -64,7 +67,7 @@ func SubFunc(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header()["Content-Type"] = []string{msg.content_type} // Just use the content-type of the first message
-		_, err := w.Write(msg.msg) // Line-end because otherwise the chunk is not transmitted
+		_, err := w.Write(msg.msg)                              // Line-end because otherwise the chunk is not transmitted
 		w.Write([]byte("\r\n"))
 
 		if err != nil { // Probably, the client has disconnected
@@ -92,10 +95,10 @@ func DelFunc(w http.ResponseWriter, r *http.Request) {
 
 func GenChannelFunc(w http.ResponseWriter, r *http.Request) {
 	var length uint
-	length_string := getURLParameter(r.URL,channel_id_length_key)
+	length_string := getURLParameter(r.URL, channel_id_length_key)
 
 	if length_string != "" {
-		fmt.Sscan(getURLParameter(r.URL,channel_id_length_key),&length)
+		fmt.Sscan(getURLParameter(r.URL, channel_id_length_key), &length)
 	} else {
 		length = 16
 	}
