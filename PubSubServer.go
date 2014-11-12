@@ -27,7 +27,9 @@ TODO: [Work]
     *   [2] Implement different channelsets (i.e. /pub/chanset?id=xyz)
     * ✓ [3] Propagate Content-Type (i.e. implement struct for messages, add Content-Type field)
 
-Copyright © 2014, Google Inc. <lewinb@google.com>
+Copyright © 2014 lbo@spheniscida.de
+
+This software is an official part of the cHaTTP application stack (github.com/Spheniscida/cHaTTP)
 
 This software is licensed under the terms and conditions of the Apache license (http://www.apache.org/licenses/LICENSE-2.0.html)
 
