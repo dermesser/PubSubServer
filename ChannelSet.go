@@ -2,7 +2,6 @@ package main
 
 import (
 	"container/list"
-	"log"
 	"sync"
 )
 
@@ -37,6 +36,8 @@ func (cs *channelSet) subscribe(chan_id string) subscription {
 	sub.channel = make(chan message)
 	sub.listKey = cs.channels[chan_id].PushFront(sub.channel)
 
+	logger.Printf("Subscribed client to channel %.5s...",chan_id)
+
 	return sub
 }
 
@@ -44,10 +45,12 @@ func (cs *channelSet) cancelSubscription(sub *subscription) {
 	cs.channels_lock.Lock()
 	defer cs.channels_lock.Unlock()
 
-	log.Println("Cancelled subscription ", sub.listKey, " ", sub.channel_id)
-
 	cs.channels[sub.channel_id].Remove(sub.listKey)
 	close(sub.channel)
+
+	logger.Printf("Cancelled subscription to channel %.5s...", sub.channel_id)
+
+	return
 }
 
 func (cs *channelSet) publish(chan_id string, msg message) (delivered uint, e error) {
@@ -58,6 +61,7 @@ func (cs *channelSet) publish(chan_id string, msg message) (delivered uint, e er
 	defer cs.channels_lock.Unlock()
 
 	if cs.channels[chan_id] == nil || cs.channels[chan_id].Front() == nil {
+		logger.Printf("Lost message %.5s... to channel id %.5s...",msg.msg,chan_id)
 		return 0, nil
 	}
 
@@ -77,7 +81,7 @@ func (cs *channelSet) publish(chan_id string, msg message) (delivered uint, e er
 
 	}
 
-	logger.Printf("Published message %.5s... to channel %.5s...", msg.msg, chan_id)
+	logger.Printf("Published message %.5s... %d times to channel %.5s...", msg.msg, successful_published, chan_id)
 
 	return successful_published, nil
 }

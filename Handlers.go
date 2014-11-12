@@ -63,22 +63,21 @@ func SubFunc(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		w.Header()["Content-Type"] = []string{msg.content_type} // Just use the first content-type
+		w.Header()["Content-Type"] = []string{msg.content_type} // Just use the content-type of the first message
 		_, err := w.Write(msg.msg) // Line-end because otherwise the chunk is not transmitted
 		w.Write([]byte("\r\n"))
 
-		if err != nil {
+		if err != nil { // Probably, the client has disconnected
 			break
 		}
 
-		if is_chunked {
-			// If the server has the capability, use chunked encoding. Else don't.
-			if w.(http.Flusher) != nil {
+		if is_chunked { // If the client wants a chunked connection, try to deliver it.
+			if w.(http.Flusher) != nil { // If the server has the capability, use chunked encoding. Else don't.
 				w.(http.Flusher).Flush()
 			} else {
 				break
 			}
-		} else {
+		} else { // Terminate connection, unsubscribe (defer'ed)
 			break
 		}
 	}

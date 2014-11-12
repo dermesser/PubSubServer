@@ -56,7 +56,7 @@ var (
 )
 
 
-const logFlags int = log.Ldate | log.Ltime
+const logFlags int = log.Ldate | log.Ltime | log.Lmicroseconds
 var logger *log.Logger
 
 var defaultChannelSet channelSet
@@ -64,7 +64,7 @@ var defaultChannelSet channelSet
 
 func setupLogger() {
 	if log_file == "<stdout>" {
-		logger = log.New(os.Stderr,"PubSubServer: ",logFlags)
+		logger = log.New(os.Stderr,"",logFlags)
 		return
 	}
 
@@ -80,7 +80,7 @@ func setupLogger() {
 		log.Panic("Couldn't open logfile")
 	}
 
-	logger = log.New(file,"PubSubServer: ",logFlags)
+	logger = log.New(file,"",logFlags)
 }
 
 func parseFlags() {
