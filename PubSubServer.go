@@ -9,15 +9,29 @@ different URLs:
     * POST /pub?id=xyz -- Publish message on channel xyz. [1]
     * GET /sub?id=xyz -- Get messages from channel xyz. [2]
     * GET/POST /del?id=xyz -- Tear down channel xyz, closing all client connections. [3]
+    * GET /gen_channel?length=16 -- Give back a $length character long random string which can be
+				    used as channel id.
+
+    Note: The id= parameter can have another name if you specified it explicitly with the
+    --channel_id_key command line parameter.
 
 [1] This request publishes a message. The Content-Type is irrelevant (yet), but to be
 sure, set it to text/plain or application/json or application/xml (or any meaningful)
+Several &id= parameters may be used to multicast a message to the specified channels.
 
 [2] This request establishes a long-lived connection with Transfer-Encoding: chunked.
 This means that incoming messages on the requested channel are streamed to the client.
 
+Use the URL parameter &no_chunked (or one with the name given with the command line
+parameter --no_chunked_key) to request a connection that only receives one message
+and is closed afterwards.
+
+Use multiple &id= parameters to listen on more than one channel.
+
 [3] This request frees resources associated with this channels and terminates
 all connections relying on it by sending a zero-length chunk (i.e. exiting the goroutine)
+
+Use the --logfile parameter to explicitly specify a log file (Default: stdout).
 
 TODO: [Work]
     * ✓ [3] Implement proper means of configuration
@@ -27,6 +41,7 @@ TODO: [Work]
     *   [4] Implement correct buffering (If-Modified-Since etc; could be difficult w/o making the server too heavy)
     *   [2] Implement different channelsets (i.e. /pub/chanset?id=xyz)
     * ✓ [3] Propagate Content-Type (i.e. implement struct for messages, add Content-Type field)
+
 
 Copyright © 2014 lbo@spheniscida.de
 
