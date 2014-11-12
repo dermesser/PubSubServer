@@ -17,7 +17,8 @@ different URLs:
 
 [1] This request publishes a message. The Content-Type is irrelevant (yet), but to be
 sure, set it to text/plain or application/json or application/xml (or any meaningful)
-Several &id= parameters may be used to multicast a message to the specified channels.
+
+Multiple &id= parameters may be used to multicast a message to the specified channels.
 
 [2] This request establishes a long-lived connection with Transfer-Encoding: chunked.
 This means that incoming messages on the requested channel are streamed to the client.

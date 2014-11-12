@@ -11,8 +11,7 @@ func PubFunc(w http.ResponseWriter, r *http.Request) {
 	params := getAllURLParameters(r.URL)
 
 	var msg message
-	var successed uint
-
+	var n_succeeded uint
 
 	msg.msg = make([]byte, r.ContentLength)
 
@@ -29,7 +28,7 @@ func PubFunc(w http.ResponseWriter, r *http.Request) {
 		msg.content_type = "text/plain"
 	}
 
-	successed, err := defaultChannelSet.publish(params[channel_id_key], msg)
+	n_succeeded, err := defaultChannelSet.publish(params[channel_id_key], msg)
 	if err != nil { // Is always nil yet.
 		w.WriteHeader(500)
 		return
@@ -37,7 +36,7 @@ func PubFunc(w http.ResponseWriter, r *http.Request) {
 
 	w.Header()["Content-Type"] = []string{"application/json"}
 	w.WriteHeader(200)
-	w.Write([]byte(fmt.Sprintf("{\"succ\": %d }", successed)))
+	w.Write([]byte(fmt.Sprintf("{\"succ\": %d }", n_succeeded)))
 
 	return
 }

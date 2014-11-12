@@ -17,7 +17,7 @@ type channelSet struct {
 
 type subscription struct {
 	// Pointer to list element for removal from linked lists
-	listKeys    []*list.Element
+	listKeys []*list.Element
 	// Channel ids subscribed to
 	channel_ids []string
 	channel     chan message
@@ -31,7 +31,10 @@ func (cs *channelSet) subscribe(chan_ids []string) subscription {
 
 	sub.channel_ids = chan_ids
 	sub.listKeys = make([]*list.Element, len(sub.channel_ids))
-	sub.channel = make(chan message,5)
+	// Buffered length is 5, if one subscriber is subscribed to multiple
+	// channels which receive messages simultaneously. Else the publisher
+	// loop would give up because the channel would block.
+	sub.channel = make(chan message, 5)
 
 	for ix, chan_id := range sub.channel_ids {
 		if cs.channels[chan_id] == nil {
@@ -51,8 +54,14 @@ func (cs *channelSet) cancelSubscription(sub *subscription) {
 
 	for i, e := range sub.channel_ids {
 		cs.channels[e].Remove(sub.listKeys[i])
+
+		if cs.channels[e].Front() == nil {
+			delete(cs.channels, e)
+		}
+
 		logger.Printf("Cancelled subscription to channel %.5s...", e)
 	}
+
 	close(sub.channel)
 
 	return
@@ -60,16 +69,12 @@ func (cs *channelSet) cancelSubscription(sub *subscription) {
 
 func (cs *channelSet) publish(chan_ids []string, msg message) (delivered uint, e error) {
 
-	var successful_published uint = 0
+	var n_published uint = 0
 
 	cs.channels_lock.Lock()
 	defer cs.channels_lock.Unlock()
 
-	for _, chan_id := range chan_ids { 
-		if cs.channels[chan_id] == nil || cs.channels[chan_id].Front() == nil {
-			logger.Printf("Lost message %.5s... to channel id %.5s...", msg.msg, chan_id)
-			continue
-		}
+	for _, chan_id := range chan_ids {
 
 		for e := cs.channels[chan_id].Front(); e != nil; e = e.Next() {
 			/*
@@ -80,17 +85,20 @@ func (cs *channelSet) publish(chan_ids []string, msg message) (delivered uint, e
 
 			select {
 			case e.Value.(chan message) <- msg:
-				successful_published++
+				n_published++
 			default:
 				continue
 			}
-
 		}
-
 	}
-	logger.Printf("Published message %.5s... %d times to channel(s) %.5s...", msg.msg, successful_published, chan_ids)
 
-	return successful_published, nil
+	if n_published == 0 {
+		logger.Printf("Lost message %.5s... to channel(s) %.5s...", msg.msg, chan_ids)
+	} else {
+		logger.Printf("Published message %.5s... %d times to channel(s) %.5s...", msg.msg, n_published, chan_ids)
+	}
+
+	return n_published, nil
 }
 
 func (cs *channelSet) deleteChannel(chan_id string) {
