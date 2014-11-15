@@ -2,6 +2,7 @@ package main
 
 import (
 	"container/list"
+	"errors"
 	"sync"
 )
 
@@ -76,13 +77,11 @@ func (cs *channelSet) publish(chan_ids []string, msg message) (delivered uint, e
 
 	for _, chan_id := range chan_ids {
 
-		for e := cs.channels[chan_id].Front(); e != nil; e = e.Next() {
-			/*
-				// Would block if receiver is not ready to receive message.
-				e.Value.(chan message) <- message
-				successful_published++
-			*/
+		if cs.channels[chan_id] == nil { // Channel doesn't exist, skip
+			continue
+		}
 
+		for e := cs.channels[chan_id].Front(); e != nil; e = e.Next() {
 			select {
 			case e.Value.(chan message) <- msg:
 				n_published++
@@ -101,9 +100,13 @@ func (cs *channelSet) publish(chan_ids []string, msg message) (delivered uint, e
 	return n_published, nil
 }
 
-func (cs *channelSet) deleteChannel(chan_id string) {
+func (cs *channelSet) deleteChannel(chan_id string) error {
 	cs.channels_lock.Lock()
 	defer cs.channels_lock.Unlock()
+
+	if cs.channels[chan_id] == nil { // Channel doesn't exist
+		return errors.New("Channel doesn't exist (anymore)")
+	}
 
 	for e := cs.channels[chan_id].Front(); e != nil; e = e.Next() {
 		close(e.Value.(chan message))
@@ -112,4 +115,6 @@ func (cs *channelSet) deleteChannel(chan_id string) {
 	delete(cs.channels, chan_id)
 
 	logger.Println("Deleted channel ", chan_id)
+
+	return nil
 }

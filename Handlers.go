@@ -88,7 +88,14 @@ func SubFunc(w http.ResponseWriter, r *http.Request) {
 func DelFunc(w http.ResponseWriter, r *http.Request) {
 	chan_id := getChannelId(r.URL)
 
-	defaultChannelSet.deleteChannel(chan_id)
+	err := defaultChannelSet.deleteChannel(chan_id)
+
+	if err != nil {
+		w.WriteHeader(404) // The only case where deleteChannel returns err != nil is if the channel doesn't exist
+		return
+	}
+
+	w.WriteHeader(200)
 
 }
 
