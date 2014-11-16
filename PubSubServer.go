@@ -12,13 +12,27 @@ different URLs:
     * GET /gen_channel?length=16 -- Give back a $length character long random string which can be
 				    used as channel id.
 
-    Note: The id= parameter can have another name if you specified it explicitly with the
+    Note: The id= parameter can have another name if you specified one explicitly with the
     --channel_id_key command line parameter.
 
-[1] This request publishes a message. The Content-Type is irrelevant (yet), but to be
-sure, set it to text/plain or application/json or application/xml (or any meaningful)
+    Note: The set= parameter can have another name if you specified one explicitly with the
+    --channelset_key command line parameter.
+
+    Use the --logfile parameter to explicitly specify a log file (Default: stdout).
+
+[1] This request publishes a message on channel id "xyz". The Content-Type is forwarded
+to any subscribers. A message is lost if there are no subscribers at the moment of publishing.
 
 Multiple &id= parameters may be used to multicast a message to the specified channels.
+
+An optional &set= (--channelset_key) parameter can be used to publish the message
+to the channels in set <set>; a channel set is like a namespace:
+
+    POST /pub?id=a&set=x
+    POST /pub?id=a&set=y
+
+These requests publish to completely different channels. There is an anonymous default set which
+is used if there is no explicit set given.
 
 [2] This request establishes a long-lived connection with Transfer-Encoding: chunked.
 This means that incoming messages on the requested channel are streamed to the client.
@@ -29,10 +43,12 @@ and is closed afterwards.
 
 Use multiple &id= parameters to listen on more than one channel.
 
-[3] This request frees resources associated with this channels and terminates
-all connections relying on it by sending a zero-length chunk (i.e. exiting the goroutine)
+Use the &set= parameter to listen to the given channel
+in a specific set. Without this URL parameter, the default set is used.
 
-Use the --logfile parameter to explicitly specify a log file (Default: stdout).
+[3] This request frees resources associated with this channels and terminates
+all connections relying on it by sending a zero-length chunk (and exiting the goroutine)
+
 
 TODO: [Work]
     * ✓ [3] Implement proper means of configuration
@@ -105,7 +121,7 @@ func parseFlags() {
 	flag.StringVar(&bind_host, "host", "0.0.0.0", "Specifies the IP address to listen on")
 	flag.StringVar(&bind_port, "port", "8080", "Specifies the TCP port to listen on")
 
-	flag.StringVar(&channel_id_key, "channelid_key", "id", "Specifies which (URL) parameter holds the channel ID")
+	flag.StringVar(&channel_id_key, "channel_id_key", "id", "Specifies which (URL) parameter holds the channel ID")
 	flag.StringVar(&no_chunked_key, "no_chunked_key", "no_chunked", "Specifies which (URL) parameter tells us to not use chunked encoding (value of parameter is irrelevant)")
 	flag.StringVar(&channel_id_length_key, "channel_id_length_key", "length", "The parameter which tells the /gen_channel handler (which generates a random channel ID) how long the channel ID should be")
 	flag.StringVar(&channelset_key, "channelset_key", "set", "The name of the URL parameter holding the name of the channel set")
