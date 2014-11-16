@@ -40,7 +40,7 @@ TODO: [Work]
     * ✓ [2] Allow publishing on several channels at once (like the item above)
     * ✓ [2] Allow requesting a non-chunked connection (new request for every message)
     *   [4] Implement correct buffering (If-Modified-Since etc; could be difficult w/o making the server too heavy)
-    *   [2] Implement different channelsets (i.e. /pub/chanset?id=xyz)
+    * ✓ [3] Implement different channelsets (i.e. /pub/chanset?id=xyz)
     * ✓ [3] Propagate Content-Type (i.e. implement struct for messages, add Content-Type field)
 
 
@@ -54,7 +54,6 @@ This software is licensed under the terms and conditions of the Apache license (
 package main
 
 import (
-	"container/list"
 	"flag"
 	"fmt"
 	"log"
@@ -66,6 +65,7 @@ import (
 var (
 	channel_id_key,
 	channel_id_length_key,
+	channelset_key,
 	no_chunked_key,
 	log_file,
 	bind_host,
@@ -76,7 +76,9 @@ const logFlags int = log.Ldate | log.Ltime | log.Lmicroseconds
 
 var logger *log.Logger
 
-var defaultChannelSet channelSet
+var channelSetMap map[string](*channelSet)
+
+const defaultChannelId = "__DEFAULT_CHANNEL_SET"
 
 func setupLogger() {
 	if log_file == "<stdout>" {
@@ -106,7 +108,7 @@ func parseFlags() {
 	flag.StringVar(&channel_id_key, "channelid_key", "id", "Specifies which (URL) parameter holds the channel ID")
 	flag.StringVar(&no_chunked_key, "no_chunked_key", "no_chunked", "Specifies which (URL) parameter tells us to not use chunked encoding (value of parameter is irrelevant)")
 	flag.StringVar(&channel_id_length_key, "channel_id_length_key", "length", "The parameter which tells the /gen_channel handler (which generates a random channel ID) how long the channel ID should be")
-
+	flag.StringVar(&channelset_key, "channelset_key", "set", "The name of the URL parameter holding the name of the channel set")
 	flag.StringVar(&log_file, "logfile", "<stdout>", "Where to send log messages (file name!). Specify as empty to discard messages.")
 
 	helpRequested := flag.Bool("help", false, "Give help on commands")
@@ -126,7 +128,8 @@ func main() {
 
 	parseFlags()
 
-	defaultChannelSet.channels = make(map[string]*list.List)
+	channelSetMap = make(map[string](*channelSet))
+	channelSetMap[defaultChannelId] = initializeChannelSet(defaultChannelId)
 
 	http.HandleFunc("/pub/", PubFunc)
 	http.HandleFunc("/pub", PubFunc)

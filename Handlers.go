@@ -12,6 +12,7 @@ func PubFunc(w http.ResponseWriter, r *http.Request) {
 
 	var msg message
 	var n_succeeded uint
+	var err error
 
 	msg.msg = make([]byte, r.ContentLength)
 
@@ -28,7 +29,22 @@ func PubFunc(w http.ResponseWriter, r *http.Request) {
 		msg.content_type = "text/plain"
 	}
 
-	n_succeeded, err := defaultChannelSet.publish(params[channel_id_key], msg)
+	var channelset_id string
+
+	if len(params[channelset_key]) == 0 {
+		channelset_id = defaultChannelId
+	} else {
+		channelset_id = params[channelset_key][0]
+	}
+
+	if channelSetMap[channelset_id] == nil { // Drop message (channelset doesn't exist therefore nobody listens).
+		n_succeeded = 0
+		err = nil
+		logger.Printf("Lost message because channelset %.5s... doesn't exist", channelset_id)
+	} else {
+		n_succeeded, err = channelSetMap[channelset_id].publish(params[channel_id_key], msg)
+	}
+
 	if err != nil { // Is always nil yet.
 		w.WriteHeader(500)
 		return
@@ -50,10 +66,24 @@ func SubFunc(w http.ResponseWriter, r *http.Request) {
 
 	is_chunked := len(params[no_chunked_key]) == 0
 
-	sub := defaultChannelSet.subscribe(chan_ids)
+	var sub subscription
+	var channelset_id string
+
+	if len(params[channelset_key]) == 0 {
+		channelset_id = defaultChannelId
+	} else if len(params[channelset_key]) > 0 {
+		channelset_id = params[channelset_key][0]
+	}
+
+	if channelSetMap[channelset_id] == nil {
+		channelSetMap[channelset_id] = initializeChannelSet(channelset_id)
+	}
+
+	sub = channelSetMap[channelset_id].subscribe(chan_ids)
+
 	defer func() {
 		if !channel_closed { // Don't close the channel twice (runtime error!)
-			defaultChannelSet.cancelSubscription(&sub)
+			channelSetMap[channelset_id].cancelSubscription(&sub)
 		}
 	}()
 
@@ -86,9 +116,21 @@ func SubFunc(w http.ResponseWriter, r *http.Request) {
 }
 
 func DelFunc(w http.ResponseWriter, r *http.Request) {
-	chan_id := getChannelId(r.URL)
+	params := getAllURLParameters(r.URL)
+	var err error
+	var channelset_id string
 
-	err := defaultChannelSet.deleteChannel(chan_id)
+	if len(params[channel_id_key]) == 0 {
+		w.WriteHeader(400)
+	}
+
+	if len(params[channelset_key]) == 0 {
+		channelset_id = defaultChannelId
+	} else {
+		channelset_id = params[channelset_key][0]
+	}
+
+	err = channelSetMap[channelset_id].deleteChannels(params[channel_id_key])
 
 	if err != nil {
 		w.WriteHeader(404) // The only case where deleteChannel returns err != nil is if the channel doesn't exist

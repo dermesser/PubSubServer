@@ -12,8 +12,9 @@ type message struct {
 }
 
 type channelSet struct {
-	channels      map[string]*list.List
-	channels_lock sync.Mutex
+	channels        map[string]*list.List
+	channels_lock   sync.Mutex
+	channelset_name string
 }
 
 type subscription struct {
@@ -22,6 +23,13 @@ type subscription struct {
 	// Channel ids subscribed to
 	channel_ids []string
 	channel     chan message
+}
+
+func initializeChannelSet(name string) *channelSet {
+	channelset := new(channelSet)
+	channelset.channels = make(map[string]*list.List)
+	channelset.channelset_name = name
+	return channelset
 }
 
 func (cs *channelSet) subscribe(chan_ids []string) subscription {
@@ -44,7 +52,7 @@ func (cs *channelSet) subscribe(chan_ids []string) subscription {
 
 		sub.listKeys[ix] = cs.channels[chan_id].PushFront(sub.channel)
 	}
-	logger.Printf("Subscribed client to channel(s) %.5s...", chan_ids)
+	logger.Printf("Subscribed client to channel(s) %.5s..., set %.5s", chan_ids, cs.channelset_name)
 
 	return sub
 }
@@ -60,7 +68,7 @@ func (cs *channelSet) cancelSubscription(sub *subscription) {
 			delete(cs.channels, e)
 		}
 
-		logger.Printf("Cancelled subscription to channel %.5s...", e)
+		logger.Printf("Cancelled subscription to channel %.5s..., set %.5s...", e, cs.channelset_name)
 	}
 
 	close(sub.channel)
@@ -92,29 +100,39 @@ func (cs *channelSet) publish(chan_ids []string, msg message) (delivered uint, e
 	}
 
 	if n_published == 0 {
-		logger.Printf("Lost message %.5s... to channel(s) %.5s...", msg.msg, chan_ids)
+		logger.Printf("Lost message %.5s... to channel(s) %.5s..., set %.5s...", msg.msg, chan_ids, cs.channelset_name)
 	} else {
-		logger.Printf("Published message %.5s... %d times to channel(s) %.5s...", msg.msg, n_published, chan_ids)
+		logger.Printf("Published message %.5s... %d times to channel(s) %.5s..., set %.5s...", msg.msg, n_published, chan_ids, cs.channelset_name)
 	}
 
 	return n_published, nil
 }
 
-func (cs *channelSet) deleteChannel(chan_id string) error {
+func (cs *channelSet) deleteChannels(chan_ids []string) error {
 	cs.channels_lock.Lock()
 	defer cs.channels_lock.Unlock()
 
-	if cs.channels[chan_id] == nil { // Channel doesn't exist
-		return errors.New("Channel doesn't exist (anymore)")
+	var failed int = 0
+
+	for _, chan_id := range chan_ids {
+		if cs.channels[chan_id] == nil { // Channel doesn't exist
+			failed++
+			continue
+		} else if cs.channels[chan_id].Front() == nil { // Shouldn't happen normally
+			failed++
+			continue
+		}
+
+		for e := cs.channels[chan_id].Front(); e != nil; e = e.Next() {
+			close(e.Value.(chan message))
+		}
+		delete(cs.channels, chan_id)
+		logger.Println("Deleted channel", chan_id, "from set", cs.channelset_name)
 	}
 
-	for e := cs.channels[chan_id].Front(); e != nil; e = e.Next() {
-		close(e.Value.(chan message))
+	if failed == len(chan_ids) {
+		return errors.New("Channels do not exist")
+	} else {
+		return nil
 	}
-
-	delete(cs.channels, chan_id)
-
-	logger.Println("Deleted channel ", chan_id)
-
-	return nil
 }
